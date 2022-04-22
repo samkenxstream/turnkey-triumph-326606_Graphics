@@ -11,8 +11,8 @@ Lightmapping_Win_DX11_editmode_mono_Linear_trunk:
     name: Lightmapping on Win_DX11_editmode_mono_Linear on version trunk
     agent:
         type: Unity::VM::GPU
-        image: automation-tooling/win-10:v0.0.1-971269
-        flavor: b1.xlarge
+        image: automation-tooling/win-10-katana:v0.0.1-1046788
+        flavor: b1.large
         model: rtx2080
     variables:
         UPM_REGISTRY: https://artifactory-slo.bf.unity3d.com/artifactory/api/npm/upm-candidates
@@ -45,8 +45,8 @@ Lightmapping_Win_DX11_Standalone_mono_Linear_trunk:
     name: Lightmapping on Win_DX11_Standalone_mono_Linear on version trunk
     agent:
         type: Unity::VM::GPU
-        image: automation-tooling/win-10:v0.0.1-971269
-        flavor: b1.xlarge
+        image: automation-tooling/win-10-katana:v0.0.1-1046788
+        flavor: b1.large
         model: rtx2080
     variables:
         UPM_REGISTRY: https://artifactory-slo.bf.unity3d.com/artifactory/api/npm/upm-candidates
@@ -77,8 +77,8 @@ Build_Lightmapping_Win_DX11_Standalone_mono_Linear_trunk:
     name: Build Lightmapping on Win_DX11_mono_Linear_Standalone_build_Player on version trunk
     agent:
         type: Unity::VM::GPU
-        image: automation-tooling/win-10:v0.0.1-971269
-        flavor: b1.xlarge
+        image: automation-tooling/win-10-katana:v0.0.1-1046788
+        flavor: b1.large
         model: rtx2080
     variables:
         UPM_REGISTRY: https://artifactory-slo.bf.unity3d.com/artifactory/api/npm/upm-candidates
@@ -114,8 +114,8 @@ Lightmapping_Win_DX11_editmode_mono_Linear_CUSTOM-REVISION:
     name: Lightmapping on Win_DX11_editmode_mono_Linear on version CUSTOM-REVISION
     agent:
         type: Unity::VM::GPU
-        image: automation-tooling/win-10:v0.0.1-971269
-        flavor: b1.xlarge
+        image: automation-tooling/win-10-katana:v0.0.1-1046788
+        flavor: b1.large
         model: rtx2080
     variables:
         UPM_REGISTRY: https://artifactory-slo.bf.unity3d.com/artifactory/api/npm/upm-candidates
