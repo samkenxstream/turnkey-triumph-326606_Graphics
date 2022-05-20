@@ -57,8 +57,20 @@ namespace UnityEngine.Rendering.HighDefinition
 
             using (new ProfilingScope(null, ProfilingSampler.Get(HDProfileId.BuildVisibleLightEntities)))
             {
+                List<Light> dgiLights = new List<Light>();
+                if (processDynamicGI)
+                {
+                    foreach (Light light in allEnabledLights)
+                    {
+                        if (light.TryGetComponent<HDAdditionalLightData>(out var hdAdditionalLightData) && hdAdditionalLightData.affectDynamicGI)
+                        {
+                            dgiLights.Add(light);
+                        }
+                    }
+                }
+
                 int visibleLightCount = cullResults.visibleLights.Length;
-                int dgiLightCount = processDynamicGI ? allEnabledLights.Count : 0;
+                int dgiLightCount = dgiLights.Count;
                 int totalLightCount = Math.Max(visibleLightCount, dgiLightCount);
 
                 if (totalLightCount == 0 || HDLightRenderDatabase.instance == null)
@@ -73,7 +85,6 @@ namespace UnityEngine.Rendering.HighDefinition
 
                 //TODO: this should be accelerated by a c++ API
                 var defaultEntity = HDLightRenderDatabase.instance.GetDefaultLightEntity();
-                List<Light> offscreenLights = new List<Light>(allEnabledLights);
                 for (int i = 0; i < totalLightCount; ++i)
                 {
                     bool isFromVisibleList = i < visibleLightCount;
@@ -81,11 +92,11 @@ namespace UnityEngine.Rendering.HighDefinition
                     if (isFromVisibleList)
                     {
                         light = cullResults.visibleLights[i].light;
-                        offscreenLights.Remove(light);
+                        dgiLights.Remove(light);
                     }
                     else
                     {
-                        light = offscreenLights[i - visibleLightCount];
+                        light = dgiLights[i - visibleLightCount];
                     }
 
                     int dataIndex = HDLightRenderDatabase.instance.FindEntityDataIndex(light);
