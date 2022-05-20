@@ -4,6 +4,7 @@ using Unity.Collections;
 using Unity.Jobs;
 using System.Threading;
 using Unity.Collections.LowLevel.Unsafe;
+using System.Collections.Generic;
 
 namespace UnityEngine.Rendering.HighDefinition
 {
@@ -32,7 +33,7 @@ namespace UnityEngine.Rendering.HighDefinition
             }
         }
 
-        private void BuildVisibleLightEntities(in CullingResults cullResults, bool processDynamicGI)
+        private void BuildVisibleLightEntities(in CullingResults cullResults, in List<Light> allEnabledLights, bool processDynamicGI)
         {
             m_Size = 0;
 
@@ -57,7 +58,7 @@ namespace UnityEngine.Rendering.HighDefinition
             using (new ProfilingScope(null, ProfilingSampler.Get(HDProfileId.BuildVisibleLightEntities)))
             {
                 int visibleLightCount = cullResults.visibleLights.Length;
-                int dgiLightCount = processDynamicGI ? (cullResults.visibleLights.Length + cullResults.visibleOffscreenVertexLights.Length) : 0;
+                int dgiLightCount = processDynamicGI ? allEnabledLights.Count : 0;
                 int totalLightCount = Math.Max(visibleLightCount, dgiLightCount);
 
                 if (totalLightCount == 0 || HDLightRenderDatabase.instance == null)
@@ -72,9 +73,20 @@ namespace UnityEngine.Rendering.HighDefinition
 
                 //TODO: this should be accelerated by a c++ API
                 var defaultEntity = HDLightRenderDatabase.instance.GetDefaultLightEntity();
+                List<Light> offscreenLights = new List<Light>(allEnabledLights);
                 for (int i = 0; i < totalLightCount; ++i)
                 {
-                    Light light = GetLightByIndex(cullResults, i);
+                    bool isFromVisibleList = i < visibleLightCount;
+                    Light light;
+                    if (isFromVisibleList)
+                    {
+                        light = cullResults.visibleLights[i].light;
+                        offscreenLights.Remove(light);
+                    }
+                    else
+                    {
+                        light = offscreenLights[i - visibleLightCount];
+                    }
 
                     int dataIndex = HDLightRenderDatabase.instance.FindEntityDataIndex(light);
                     if (dataIndex == HDLightRenderDatabase.InvalidDataIndex)
@@ -103,6 +115,21 @@ namespace UnityEngine.Rendering.HighDefinition
                     m_VisibleLightShadowCasterMode[i] = light.lightShadowCasterMode;
                     m_VisibleLightShadows[i] = light.shadows;
                     m_VisibleLightBounceIntensity[i] = light.bounceIntensity;
+
+                    if (!isFromVisibleList)
+                    {
+                        // Create a fake VisibleLight
+                        Matrix4x4 ltwMatrix = light.transform.localToWorldMatrix;
+                        m_OffscreenDynamicGILights[i - visibleLightCount] = new VisibleLight()
+                        {
+                            localToWorldMatrix = new Matrix4x4(ltwMatrix.GetColumn(0), ltwMatrix.GetColumn(1), ltwMatrix.GetColumn(2), ltwMatrix.GetColumn(3)), // Copy matrix
+                            lightType = light.type,
+                            screenRect = default, // Unused for offscreen lights
+                            finalColor = light.color,
+                            range = light.range,
+                            spotAngle = light.spotAngle,
+                        };
+                    }
                 }
             }
         }
@@ -168,19 +195,6 @@ namespace UnityEngine.Rendering.HighDefinition
 
                 if (!aovRequest.IsLightEnabled(go))
                     m_VisibleLightEntityDataIndices[i] = HDLightRenderDatabase.InvalidDataIndex;
-            }
-        }
-
-        private Light GetLightByIndex(in CullingResults cullResults, int index)
-        {
-            if (index < cullResults.visibleLights.Length)
-            {
-                return cullResults.visibleLights[index].light;
-            }
-            else
-            {
-                int offScreenLightIndex = index - cullResults.visibleLights.Length;
-                return cullResults.visibleOffscreenVertexLights[offScreenLightIndex].light;
             }
         }
     }
