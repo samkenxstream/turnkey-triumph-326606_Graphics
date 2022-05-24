@@ -33,7 +33,20 @@ namespace UnityEngine.Rendering.HighDefinition
             }
         }
 
-        private void BuildVisibleLightEntities(in CullingResults cullResults, in List<Light> allEnabledLights, bool processDynamicGI)
+        private static Color GetLightFinalColor(Light light)
+        {
+            var finalColor = light.color.linear * light.intensity;
+
+            if (light.useColorTemperature)
+                finalColor *= Mathf.CorrelatedColorTemperatureToRGB(light.colorTemperature);
+
+            if (QualitySettings.activeColorSpace == ColorSpace.Gamma)
+                finalColor = finalColor.gamma;
+
+            return finalColor;
+        }
+
+        private void BuildVisibleLightEntities(in CullingResults cullResults, in List<Light> allEnabledLights, in List<HDAdditionalLightData> allEnabledLightsAdditionalData, bool processDynamicGI)
         {
             m_Size = 0;
 
@@ -57,20 +70,28 @@ namespace UnityEngine.Rendering.HighDefinition
 
             using (new ProfilingScope(null, ProfilingSampler.Get(HDProfileId.BuildVisibleLightEntities)))
             {
-                List<Light> dgiLights = new List<Light>();
+                // Prefilter dynamic GI lights
+                m_OffscreenDgiIndicesSize = 0;
                 if (processDynamicGI)
                 {
-                    foreach (Light light in allEnabledLights)
+                    int numLights = allEnabledLights.Count;
+                    if (numLights > m_OffscreenDgiIndicesCapacity)
                     {
-                        if (light.TryGetComponent<HDAdditionalLightData>(out var hdAdditionalLightData) && hdAdditionalLightData.affectDynamicGI)
+                        ResizeOffscreenDgiIndices(numLights);
+                    }
+
+                    for (int i = 0; i < allEnabledLightsAdditionalData.Count; i++)
+                    {
+                        if (allEnabledLightsAdditionalData[i].affectDynamicGI)
                         {
-                            dgiLights.Add(light);
+                            m_OffscreenDgiIndices[m_OffscreenDgiIndicesSize] = i;
+                            m_OffscreenDgiIndicesSize++;
                         }
                     }
                 }
 
                 int visibleLightCount = cullResults.visibleLights.Length;
-                int dgiLightCount = dgiLights.Count;
+                int dgiLightCount = m_OffscreenDgiIndicesSize;
                 int totalLightCount = Math.Max(visibleLightCount, dgiLightCount);
 
                 if (totalLightCount == 0 || HDLightRenderDatabase.instance == null)
@@ -92,11 +113,27 @@ namespace UnityEngine.Rendering.HighDefinition
                     if (isFromVisibleList)
                     {
                         light = cullResults.visibleLights[i].light;
-                        dgiLights.Remove(light);
+
+                        if (processDynamicGI)
+                        {
+                            // Remove light from m_OffscreenDgiIndices, if it's there
+                            int idx = allEnabledLights.IndexOf(light);
+                            if (idx >= 0)
+                            {
+                                m_OffscreenDgiIndicesSize--;
+                                // Fill the gap with the last index from the list
+                                if (idx < m_OffscreenDgiIndicesSize)
+                                {
+                                    m_OffscreenDgiIndices[idx] = m_OffscreenDgiIndices[m_OffscreenDgiIndicesSize];
+                                }
+
+                            }
+                        }
                     }
                     else
                     {
-                        light = dgiLights[i - visibleLightCount];
+                        int idx = m_OffscreenDgiIndices[i - visibleLightCount];
+                        light = allEnabledLights[idx];
                     }
 
                     int dataIndex = HDLightRenderDatabase.instance.FindEntityDataIndex(light);
@@ -130,13 +167,12 @@ namespace UnityEngine.Rendering.HighDefinition
                     if (!isFromVisibleList)
                     {
                         // Create a fake VisibleLight
-                        Matrix4x4 ltwMatrix = light.transform.localToWorldMatrix;
                         m_OffscreenDynamicGILights[i - visibleLightCount] = new VisibleLight()
                         {
-                            localToWorldMatrix = new Matrix4x4(ltwMatrix.GetColumn(0), ltwMatrix.GetColumn(1), ltwMatrix.GetColumn(2), ltwMatrix.GetColumn(3)), // Copy matrix
+                            localToWorldMatrix = light.transform.localToWorldMatrix,
                             lightType = light.type,
                             screenRect = default, // Unused for offscreen lights
-                            finalColor = light.color,
+                            finalColor = GetLightFinalColor(light),
                             range = light.range,
                             spotAngle = light.spotAngle,
                         };

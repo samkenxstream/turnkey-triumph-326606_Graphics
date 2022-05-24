@@ -65,6 +65,7 @@ namespace UnityEngine.Rendering.HighDefinition
             HDCamera hdCamera,
             in CullingResults cullingResult,
             in List<Light> allEnabledLights,
+            in List<HDAdditionalLightData> allEnabledLightsAdditionalData,
             HDShadowManager shadowManager,
             in HDShadowInitParameters inShadowInitParameters,
             in AOVRequestData aovRequestData,
@@ -72,7 +73,7 @@ namespace UnityEngine.Rendering.HighDefinition
             DebugDisplaySettings debugDisplaySettings,
             bool processDynamicGI)
         {
-            BuildVisibleLightEntities(cullingResult, allEnabledLights, processDynamicGI);
+            BuildVisibleLightEntities(cullingResult, allEnabledLights, allEnabledLightsAdditionalData, processDynamicGI);
 
             if (m_Size == 0)
                 return;
@@ -113,6 +114,11 @@ namespace UnityEngine.Rendering.HighDefinition
         private int m_Capacity = 0;
         private int m_Size = 0;
 
+        private NativeArray<int> m_OffscreenDgiIndices;
+
+        private int m_OffscreenDgiIndicesCapacity;
+        private int m_OffscreenDgiIndicesSize;
+
         private NativeArray<uint> m_SortKeys;
         private NativeArray<uint> m_SortKeysDGI;
         private NativeArray<uint> m_SortSupportArray;
@@ -134,6 +140,12 @@ namespace UnityEngine.Rendering.HighDefinition
             m_ShadowLightsDataIndices.ResizeArray(m_Capacity);
         }
 
+        private void ResizeOffscreenDgiIndices(int newCapacity)
+        {
+            m_OffscreenDgiIndicesCapacity = Math.Max(Math.Max(newCapacity, ArrayCapacity), m_OffscreenDgiIndicesCapacity * 2);
+            m_OffscreenDgiIndices.ResizeArray(m_OffscreenDgiIndicesCapacity);
+        }
+
         public void Cleanup()
         {
             if (m_SortSupportArray.IsCreated)
@@ -144,6 +156,14 @@ namespace UnityEngine.Rendering.HighDefinition
 
             if (m_ProcessDynamicGILightCounts.IsCreated)
                 m_ProcessDynamicGILightCounts.Dispose();
+
+            if (m_OffscreenDgiIndicesCapacity > 0)
+            {
+                m_OffscreenDgiIndices.Dispose();
+            }
+
+            m_OffscreenDgiIndicesCapacity = 0;
+            m_OffscreenDgiIndicesSize = 0;
 
             if (m_Capacity == 0)
                 return;

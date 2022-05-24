@@ -1729,6 +1729,7 @@ namespace UnityEngine.Rendering.HighDefinition
                 hdCamera,
                 cullResults,
                 HDAdditionalLightData.GetLightInstances(),
+                HDAdditionalLightData.s_InstancesHDAdditionalLightData,
                 m_ShadowManager,
                 m_ShadowInitParameters,
                 aovRequest,
